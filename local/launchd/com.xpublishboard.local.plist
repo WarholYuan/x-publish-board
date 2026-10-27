@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- macOS 常驻：开机自启本地三件套（状态服务 + 回采接收端 + 本地网关）。
+     用前把 __REPO__ 全部替换成仓库的绝对路径，例如：
+       sed -i '' "s|__REPO__|$PWD|g" local/launchd/com.xpublishboard.local.plist
+     然后：
+       cp local/launchd/com.xpublishboard.local.plist ~/Library/LaunchAgents/
+       launchctl load ~/Library/LaunchAgents/com.xpublishboard.local.plist
+     停：launchctl unload ~/Library/LaunchAgents/com.xpublishboard.local.plist -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.xpublishboard.local</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__REPO__/local/start_local.sh</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>__REPO__</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>__REPO__/data/logs/launchd-local.log</string>
+  <key>StandardErrorPath</key>
+  <string>__REPO__/data/logs/launchd-local.log</string>
+</dict>
+</plist>

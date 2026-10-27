@@ -54,6 +54,10 @@
 - **粉丝总数只认兜底口径。** 扩展从页面抄来的粉丝总数一律忽略（曾把认证粉丝数误抄成总数），只接受 FxTwitter / 官方接口读到的数；扩展只负责认证粉丝数与帖子私有数据（主页访问、链接点击等）。
 - **回填幂等。** 同一条帖子每个窗口只回填一次（本地账本），重跑、重复上报都不会重复写。
 
+## 没有服务器 / 没有域名？
+
+也能跑，零成本。服务器和域名只是手段，真正需要的是「一台在用的机器 + 一个稳定的访问地址 + 定时任务」：用你自己的电脑跑全部服务（`local/` 本地网关替代 Caddy），地址用本机 `127.0.0.1`（纯本地版），或再套一层 Tailscale Funnel 拿到一个免费稳定的 `*.ts.net` https 地址（手机也能打开）。功能一套不少，代价只是电脑关机就停。完整步骤、定时常驻与验收清单见 [docs/no-server.md](docs/no-server.md)。
+
 ## 一句话部署
 
 不想自己一步步来的，直接把 [DEPLOY_PROMPT.md](DEPLOY_PROMPT.md) 里那段话复制给你的 AI 助手（附上服务器、域名、X 账号信息），它会照本仓库的文档部署并逐条验收。前置条件清单（需要备齐什么、参考部署实况、成本预估）在 [docs/prerequisites.md](docs/prerequisites.md)。
@@ -69,7 +73,7 @@
 
 ## 前置条件
 
-- 一台能跑 Python 3.10+ 的 Linux 服务器，有 HTTPS 域名（Caddy 最省事，仓库给了片段；nginx 同理）；
+- 一台能跑 Python 3.10+ 的 Linux 服务器，有 HTTPS 域名（Caddy 最省事，仓库给了片段；nginx 同理）；**或者**你自己的电脑 + Tailscale 账号，走零成本的本地模式，见 [docs/no-server.md](docs/no-server.md)；
 - [lark-cli](https://github.com/larksuite/cli) 已以你的飞书账号登录（`--as user`），服务器上可调用；
 - 一个飞书账号（Base 免费版够用）；
 - 一个 X 账号；长文功能需要 X Premium；
@@ -84,6 +88,7 @@
 ```
 board/       发布板渲染 + 状态服务（含 systemd/ 与 caddy/ 模板）
 collect/     回采核心 + 接收端 + FxTwitter 兜底（含 systemd/、cron/、tests/）
+local/       无服务器模式：本地网关 + 一键启动脚本（sh / ps1）+ 本地配置示例 + launchd 模板
 extension/   回采浏览器扩展（占位符模板 + configure_extension.py 生成脚本）
 feishu/      Base 结构定义 schema.json + 建表脚本
 docs/        飞书建表、部署、扩展三份手册

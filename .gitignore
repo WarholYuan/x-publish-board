@@ -1,6 +1,8 @@
 config.env
 *.env
 !config.env.example
+!local/config.local.example
+data/
 state-token.txt
 collect-token.txt
 *.jsonl

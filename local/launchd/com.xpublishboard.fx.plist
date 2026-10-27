@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- macOS 定时兜底：每小时第 17 分跑一次 FxTwitter 公开数据兜底（等价于服务器版 cron）。
+     用前把 __REPO__ 全部替换成仓库的绝对路径，cp 到 ~/Library/LaunchAgents/ 后 launchctl load。 -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.xpublishboard.fx</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>-c</string>
+    <string>set -a; . __REPO__/config.env; set +a; exec /usr/bin/python3 __REPO__/collect/fx_poll.py &gt;&gt; __REPO__/data/logs/fx_poll.log 2&gt;&amp;1</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>__REPO__</string>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Minute</key>
+    <integer>17</integer>
+  </dict>
+</dict>
+</plist>

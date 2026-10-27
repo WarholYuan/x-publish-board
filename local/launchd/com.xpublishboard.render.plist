@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- macOS 定时渲染：每 5 分钟渲染一次发布板（等价于服务器版的 systemd timer）。
+     用前把 __REPO__ 全部替换成仓库的绝对路径，cp 到 ~/Library/LaunchAgents/ 后 launchctl load。
+     注意：config.env 里若用了 ./data/... 相对路径，本 plist 已设 WorkingDirectory，
+     相对路径以仓库根为基准，没有问题。 -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.xpublishboard.render</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>-c</string>
+    <string>set -a; . __REPO__/config.env; set +a; exec /usr/bin/python3 __REPO__/board/render_board.py &gt;&gt; __REPO__/data/logs/render.log 2&gt;&amp;1</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>__REPO__</string>
+  <key>StartInterval</key>
+  <integer>300</integer>
+  <key>RunAtLoad</key>
+  <true/>
+</dict>
+</plist>

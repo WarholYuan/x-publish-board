@@ -8,6 +8,17 @@ python3 extension/configure_extension.py --handle your_handle --domain example.c
 
 参数：`--handle` 不带 @；`--domain` 是你的站点域名（回采上报到 `https://<domain>/collect-api/ingest`，板页在 `https://<domain>/x/`）。脚本会复制整个扩展目录并替换全部占位符，同时把生成结果的目录打印出来。
 
+没有服务器 / 域名、走本地模式的，用 `--base-url` 代替 `--domain`（二选一），填站点的根地址：
+
+```bash
+# 纯本地模式
+python3 extension/configure_extension.py --handle your_handle --base-url http://127.0.0.1:8799 --out /tmp/my-extension
+# 本地 + Tailscale Funnel 模式
+python3 extension/configure_extension.py --handle your_handle --base-url https://your-machine.your-tailnet.ts.net --out /tmp/my-extension
+```
+
+上报端点拼为 `<base-url>/collect-api/ingest`；脚本会自动把 manifest 的 host 权限校正为不带端口的 `协议://主机/*`（Chrome 的权限模式不允许写端口）。细节见 `docs/no-server.md`。
+
 ## 安装（Chrome / Edge / Arc 等 Chromium 内核）
 
 1. 打开 `chrome://extensions`，打开右上角「开发者模式」；

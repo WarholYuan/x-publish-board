@@ -1,0 +1,44 @@
+# X 发布板本地模式配置 —— 复制为仓库根目录的 config.env 后填你自己的值。
+# 与服务器版 config.env.example 的区别只有「站点」和「路径」两节：
+# 路径全部落在仓库的 data/ 目录里（已被 .gitignore 忽略），不写 /opt、/var/www。
+# 本文件不要提交到任何仓库（config.env 已在 .gitignore 里）。
+
+# --- 飞书（必填，与服务器版相同）---
+# Base 链接形如 https://my.feishu.cn/base/<这一段就是 BASE_TOKEN>
+FEISHU_BASE_TOKEN=
+# 四张表的 table_id（在 Base 里打开表，lark-cli base +table-list 可查）
+FEISHU_PUBLISH_TABLE_ID=
+FEISHU_TOPIC_TABLE_ID=
+FEISHU_DAILY_TABLE_ID=
+FEISHU_BENCHMARK_TABLE_ID=
+# lark-cli 路径（本机 which lark-cli 查；就在 PATH 里可写 lark-cli）
+LARK_CLI=lark-cli
+
+# --- 你的 X 账号（必填，与服务器版相同）---
+X_TARGET_ACCOUNT=your_handle
+# 注意：JSON 值必须用单引号包住——值里有空格，不加引号 shell 加载这份配置时会断。
+X_DISPLAY_NAMES_JSON='{"@your_handle": "Your Name"}'
+
+# --- 站点（按模式二选一）---
+# 纯本地模式：
+SITE_DOMAIN=127.0.0.1:8799
+SITE_URL=http://127.0.0.1:8799/x/
+# Tailscale Funnel 模式（把下面两行换成你的地址，上面两行删掉或注释）：
+# SITE_DOMAIN=your-machine.your-tailnet.ts.net
+# SITE_URL=https://your-machine.your-tailnet.ts.net/x/
+
+# --- 路径（本地模式，不要改成服务器路径）---
+# 注意：相对路径以「启动进程的工作目录」为基准。start_local.sh / start_local.ps1
+# 都从仓库根目录启动，所以写 ./data/... 即可；若用 launchd / 任务计划单独
+# 定时跑 fx_poll.py，请把这几项改成仓库的绝对路径。
+XBOARD_OUT_DIR=./data/board
+XBOARD_TOKEN_FILE=./data/board-state/state-token.txt
+XCOLLECT_STATE_DIR=./data/collect
+XCOLLECT_TOKEN_FILE=./data/collect/collect-token.txt
+XCOLLECT_EXTENSION_DIR=./extension
+EXTENSION_ZIP_OUT=./data/xcollect/extension.zip
+XCOLLECT_FX_LOCK=./data/collect/fx.lock
+
+# --- 本地网关（一般不用改）---
+XLOCAL_HOST=127.0.0.1
+XLOCAL_PORT=8799

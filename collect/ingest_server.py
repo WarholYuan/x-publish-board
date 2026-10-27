@@ -36,6 +36,21 @@ def load_token() -> str:
         return ""
 
 
+def ensure_token() -> str:
+    """令牌文件不存在时生成一个（权限 600），与手册「首次启动自动生成」一致。"""
+    token = load_token()
+    if token:
+        return token
+    TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
+    token = secrets.token_urlsafe(32)
+    TOKEN_FILE.write_text(token, encoding="utf-8")
+    try:
+        TOKEN_FILE.chmod(0o600)
+    except OSError:
+        pass
+    return token
+
+
 def normalize_account(value: Any) -> str | None:
     return core.normalize_account(value)
 
@@ -248,10 +263,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main() -> int:
     core.configure_logging("ingest")
-    token = load_token()
-    if not token:
-        log.error("token file missing/empty: %s", TOKEN_FILE)
-        return 1
+    token = ensure_token()
     try:
         mode = TOKEN_FILE.stat().st_mode & 0o777
         if mode != 0o600:
