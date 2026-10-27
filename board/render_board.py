@@ -27,6 +27,8 @@ from zoneinfo import ZoneInfo
 
 BASE_TOKEN = os.environ.get("FEISHU_BASE_TOKEN", "")
 TABLE_ID = os.environ.get("FEISHU_PUBLISH_TABLE_ID", "")
+# 楼层表（串帖逐楼）：可选；未配置时退回「串/首条回复」单文本框旧模式
+FLOORS_TABLE_ID = os.environ.get("FEISHU_FLOORS_TABLE_ID", "")
 LARK = os.environ.get("LARK_CLI", "/opt/node24/bin/lark-cli")
 OUT_DIR = Path(os.environ.get("XBOARD_OUT_DIR", "/var/www/x-publish-board/x"))
 OUT_FILE = OUT_DIR / "index.html"
@@ -58,12 +60,13 @@ def run_lark(*args: str, timeout: int = 120) -> dict:
     return json.loads(proc.stdout)
 
 
-def list_records() -> list[dict]:
+def list_records(table_id: str | None = None) -> list[dict]:
+    table_id = table_id or TABLE_ID
     all_rows: list[tuple[str, list]] = []
     fields: list[str] | None = None
     offset = 0
     while True:
-        out = run_lark("+record-list", "--base-token", BASE_TOKEN, "--table-id", TABLE_ID,
+        out = run_lark("+record-list", "--base-token", BASE_TOKEN, "--table-id", table_id,
                        "--limit", "200", "--offset", str(offset), "--format", "json")
         data = out["data"]
         fields = data["fields"]
@@ -127,6 +130,76 @@ def cell_option(value) -> str:
     return ""
 
 
+def cell_num(value) -> int | None:
+    """数字字段取 int；空/非法返回 None。"""
+    if value in (None, ""):
+        return None
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def cell_link_ids(value) -> list[str]:
+    """关联字段的单元格 -> 被关联记录 id 列表（兼容字符串/dict 两种返回形态）。"""
+    ids: list[str] = []
+    if isinstance(value, list):
+        for v in value:
+            if isinstance(v, str) and v:
+                ids.append(v)
+            elif isinstance(v, dict):
+                rid = v.get("record_id") or v.get("id")
+                if rid:
+                    ids.append(str(rid))
+                for sub in v.get("record_ids") or []:
+                    ids.append(str(sub))
+    elif isinstance(value, str) and value:
+        ids.append(value)
+    return ids
+
+
+def load_floors() -> dict[str, list[dict]]:
+    """读楼层表，按所属帖（发布库 record_id）分组、按楼号排序。
+
+    返回 {post_record_id: [{record_id, n, role, text, attachments, link,
+    likes, bookmarks, replies}]}。未配置楼层表或读失败时返回空 dict，
+    发布板退回旧的单文本框模式，不让楼层表故障拖垮整板渲染。
+    """
+    if not FLOORS_TABLE_ID:
+        return {}
+    try:
+        rows = list_records(FLOORS_TABLE_ID)
+    except Exception as exc:  # noqa: BLE001
+        print(f"WARN floors table read failed, fallback to legacy thread text: {exc}",
+              file=sys.stderr)
+        return {}
+    grouped: dict[str, list[dict]] = {}
+    for rec in rows:
+        posts = cell_link_ids(rec.get("所属帖"))
+        if not posts:
+            continue
+        n = cell_num(rec.get("楼号"))
+        if n is None:
+            m = re.search(r"(\d+)", cell_text(rec.get("楼层")))
+            n = int(m.group(1)) if m else 0
+        floor = {
+            "record_id": rec["record_id"],
+            "n": n,
+            "role": cell_option(rec.get("角色")),
+            "text": cell_text(rec.get("正文")),
+            "attachments": rec.get("配图") or [],
+            "link": cell_text(rec.get("本楼链接")),
+            "likes": cell_num(rec.get("点赞")),
+            "bookmarks": cell_num(rec.get("收藏")),
+            "replies": cell_num(rec.get("回复")),
+        }
+        for pid in posts:
+            grouped.setdefault(pid, []).append(floor)
+    for floors in grouped.values():
+        floors.sort(key=lambda f: (f["n"], f["record_id"]))
+    return grouped
+
+
 def ts_to_iso(value) -> str:
     """飞书 datetime 字段返回毫秒时间戳字符串/数字，转成 ISO；原样返回已是字符串的情况。"""
     if value in (None, ""):
@@ -139,8 +212,13 @@ def ts_to_iso(value) -> str:
     return s
 
 
-def download_images(record_id: str, board_no: str, attachments: list) -> tuple[list[str], list[str]]:
-    """下载前 MAX_IMAGES 个附件到 assets/<board_no>/，返回 (相对路径列表, 失败文件名列表)。"""
+def download_images(record_id: str, board_no: str, attachments: list,
+                    table_id: str | None = None) -> tuple[list[str], list[str]]:
+    """下载前 MAX_IMAGES 个附件到 assets/<board_no>/，返回 (相对路径列表, 失败文件名列表)。
+
+    board_no 可带子目录（如 "<板上编号>/f2" 表示第 2 楼的配图）；table_id 缺省为发布库，
+    楼层配图要传楼层表 ID。
+    """
     target = ASSETS_DIR / board_no
     target.mkdir(parents=True, exist_ok=True)
     saved, failed = [], []
@@ -166,7 +244,7 @@ def download_images(record_id: str, board_no: str, attachments: list) -> tuple[l
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmp_dest = Path(tmpdir) / name
                 run_lark("+record-download-attachment", "--base-token", BASE_TOKEN,
-                         "--table-id", TABLE_ID, "--record-id", record_id,
+                         "--table-id", table_id or TABLE_ID, "--record-id", record_id,
                          "--file-token", str(att.get("file_token", "")),
                          "--output", str(tmp_dest), "--overwrite")
                 if tmp_dest.exists() and tmp_dest.stat().st_size > 0:
@@ -223,7 +301,7 @@ def image_size(path: Path) -> list[int] | None:
     return None
 
 
-def build_note(rec: dict, images: list[str]) -> dict:
+def build_note(rec: dict, images: list[str], floors: list[dict] | None = None) -> dict:
     title = cell_text(rec.get("标题/首句"))
     body = cell_text(rec.get("正文"))
     return {
@@ -235,6 +313,7 @@ def build_note(rec: dict, images: list[str]) -> dict:
         "title": title,
         "body": body,
         "thread": cell_text(rec.get("串/首条回复")),
+        "floors": floors or [],
         "images": images,
         "imageSizes": [image_size(OUT_DIR / rel) for rel in images],
         "status": cell_option(rec.get("状态")),
@@ -271,6 +350,7 @@ def escape_html(value: str) -> str:
 
 def main() -> int:
     records = list_records()
+    floors_by_post = load_floors()
     updates: dict[str, dict] = {}
     notes: list[dict] = []
     failures: list[str] = []
@@ -295,7 +375,20 @@ def main() -> int:
             pass
         images, failed = download_images(rec["record_id"], board_no, rec.get("图片") or [])
         failures.extend(f"{board_no}/{f}" for f in failed)
-        notes.append(build_note(rec, images))
+        floors = []
+        for fl in floors_by_post.get(rec["record_id"], []):
+            f_images, f_failed = download_images(
+                fl["record_id"], f"{board_no}/f{fl['n']}", fl["attachments"],
+                table_id=FLOORS_TABLE_ID)
+            failures.extend(f"{board_no}/f{fl['n']}/{f}" for f in f_failed)
+            floors.append({
+                "n": fl["n"], "role": fl["role"], "text": fl["text"],
+                "images": f_images,
+                "imageSizes": [image_size(OUT_DIR / rel) for rel in f_images],
+                "link": fl["link"], "likes": fl["likes"],
+                "bookmarks": fl["bookmarks"], "replies": fl["replies"],
+            })
+        notes.append(build_note(rec, images, floors))
 
     if updates:
         batch_update(updates)
@@ -419,6 +512,16 @@ PAGE_TEMPLATE = r"""<!doctype html>
     .body-text { margin-top:10px; color:#38383d; font-size:15px; line-height:1.8; white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; }
     .thread-text { margin-top:12px; padding:10px 12px; border-left:3px solid var(--accent); background:var(--surface-soft); border-radius:0 10px 10px 0; color:#38383d; font-size:14px; line-height:1.7; white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; }
     .thread-text b { display:block; margin-bottom:4px; color:var(--muted); font-size:12px; }
+    .floors { margin-top:10px; display:flex; flex-direction:column; gap:8px; }
+    .floor-row { padding:10px 12px; border-left:3px solid var(--accent); background:var(--surface-soft); border-radius:0 10px 10px 0; }
+    .floor-head { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+    .floor-head b { color:var(--muted); font-size:12px; }
+    .floor-stats { color:var(--muted); font-size:12px; }
+    .floor-copy { margin-left:auto; border:1px solid var(--line); background:var(--surface); color:var(--accent-ink); border-radius:999px; padding:2px 10px; font-size:12px; cursor:pointer; }
+    .floor-text { color:#38383d; font-size:14px; line-height:1.7; white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; }
+    .floor-imgs { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+    .floor-imgs img { width:72px; height:72px; object-fit:cover; border-radius:8px; }
+    .xd-floor-tag { padding:10px 16px 0; color:var(--muted); font-size:12px; font-weight:700; }
     .save-button { display:flex; align-items:center; justify-content:center; gap:5px; width:100%; min-height:40px; margin-top:6px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); font-size:13px; font-weight:650; cursor:pointer; }
     .save-all { margin-top:10px; min-height:44px; }
     .actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; margin-top:18px; }
@@ -720,14 +823,20 @@ PAGE_TEMPLATE = r"""<!doctype html>
     function kindOf(note) { if (note.type==="长文") return "article"; if (note.type==="线程") return "thread"; return "post"; }
     // 发布保真：只去掉首尾空白，正文中间的换行、空行、空格一律原样保留
     function clean(text) { return String(text||"").replace(/^\s+|\s+$/g,""); }
+    function floorTexts(note) { return (note.floors||[]).map(f=>clean(f.text)).filter(Boolean); }
     function copyPayload(note, kind) {
       if (kind==="title") return clean(note.title);
       if (kind==="body") return clean(note.body);
-      if (kind==="thread") return clean(note.thread);
-      if (kind==="all") return [clean(note.body), clean(note.thread)].filter(Boolean).join("\n");
+      if (kind==="thread") { const ft=floorTexts(note); return ft.length?ft.join("\n"):clean(note.thread); }
+      if (kind==="all") { const ft=floorTexts(note); return [clean(note.body), ...(ft.length?ft:[clean(note.thread)])].filter(Boolean).join("\n"); }
       return "";
     }
     const copyLabels = { title:"标题", body:"正文", thread:"串/首条回复", all:"整串" };
+    function doCopyFloor(note, idx) {
+      const f=(note.floors||[])[idx]; const text=f?clean(f.text):"";
+      if (!text) { showToast(`第 ${f?f.n:idx+1} 楼没有正文可复制`); return Promise.resolve(false); }
+      return copyText(text).then(ok=>{ if (ok) showToast(`已复制第 ${f.n} 楼`); else showManualCopy(text); return ok; });
+    }
     function intentUrl(text) { return "https://x.com/intent/tweet?text=" + encodeURIComponent(text); }
     function handleOf(note) { const raw=(note.account||"").trim(); if (!raw) return {name:"未指定账号", handle:"@account"}; const h=raw.startsWith("@")?raw:"@"+raw; const display=accounts.find(a=>a.id===note.accountId)?.displayName; return {name:display||h.slice(1), handle:h}; }
     // 按 X 帖子详情页的实际渲染规则（2026-10 在 x.com 实测 DOM）：
@@ -954,7 +1063,7 @@ PAGE_TEMPLATE = r"""<!doctype html>
       const preview=btn(" xblue",`data-preview="${id}"`,"预览发布效果");
       let row1, row2;
       if (kind==="article") { row1=[openButton(note), btn("",`data-copy="body" data-id="${id}"`,"复制正文")]; row2=[preview, btn("",`data-copy="title" data-id="${id}"`,"复制标题")]; }
-      else if (kind==="thread") { row1=[btn(" primary",`data-copy="all" data-id="${id}"`,"复制整串"), btn("",`data-copy="body" data-id="${id}"`,"复制首条"), btn("",`data-copy="thread" data-id="${id}"`,"复制串/回复")]; row2=[preview, openButton(note)]; }
+      else if (kind==="thread") { if ((note.floors||[]).length) { row1=[btn(" primary",`data-copy="all" data-id="${id}"`,"复制整串"), btn("",`data-copy="body" data-id="${id}"`,"复制首条")]; row2=[preview, openButton(note)]; } else { row1=[btn(" primary",`data-copy="all" data-id="${id}"`,"复制整串"), btn("",`data-copy="body" data-id="${id}"`,"复制首条"), btn("",`data-copy="thread" data-id="${id}"`,"复制串/回复")]; row2=[preview, openButton(note)]; } }
       else { row1=[btn(" primary",`data-copy="body" data-id="${id}"`,"复制正文")]; if (clean(note.thread)) row1.push(btn("",`data-copy="thread" data-id="${id}"`,"复制首条回复")); row2=[preview, openButton(note)]; }
       return `<div class="actions fixed-actions"><div class="act-row" style="--cols:${row1.length}">${row1.join("")}</div><div class="act-row" style="--cols:${row2.length}">${row2.join("")}</div></div>`;
     }
@@ -964,15 +1073,18 @@ PAGE_TEMPLATE = r"""<!doctype html>
       const typeBadge=note.type?`<span class="badge type" data-kind="${kind}">${escapeHtml(note.type)}</span>`:"";
       const body=clean(note.body), thread=clean(note.thread);
       const internal=kind==="article"?"":`<span class="internal-tag" title="短帖/线程的标题只是内部标识，不会发出去">内部标识</span>`;
-      const threadHtml=thread?`<div class="thread-text"><b>${kind==="thread"?"串":"首条回复"}</b>${escapeHtml(thread)}</div>`:"";
+      const floors=note.floors||[];
+      const threadHtml=(!floors.length&&thread)?`<div class="thread-text"><b>${kind==="thread"?"串":"首条回复"}</b>${escapeHtml(thread)}</div>`:"";
+      const floorsHtml=floors.length?`<div class="floors">${floors.map((f,i)=>{ const stats=(f.likes!=null||f.bookmarks!=null||f.replies!=null)?`<span class="floor-stats">赞 ${f.likes??0} · 收藏 ${f.bookmarks??0} · 回复 ${f.replies??0}</span>`:""; const imgs=(f.images&&f.images.length)?`<div class="floor-imgs">${f.images.map(src=>`<img src="${escapeHtml(src)}" alt="" loading="lazy" decoding="async">`).join("")}</div>`:""; return `<div class="floor-row"><div class="floor-head"><b>第 ${f.n} 楼${f.role?" · "+escapeHtml(f.role):""}</b>${stats}<button class="floor-copy" type="button" data-copy-floor="${i}" data-id="${note.id}">复制本楼</button></div><div class="floor-text">${clean(f.text)?escapeHtml(clean(f.text)):'<span class="text-empty">（本楼正文为空）</span>'}</div>${imgs}</div>`; }).join("")}</div>`:"";
       const timeText=status==="published"?`发布于 ${formatTime(note.publishedAt)||note.publishedAt}`:"";
       return `<article class="note-card fixed" data-id="${note.id}" data-status="${status}" data-kind="${kind}">
         <div class="note-main">
           <div class="note-meta"><span class="meta-acc">${escapeHtml(accountLabel(note.accountId))}</span>${typeBadge}${plan?`<span class="plan-chip">${escapeHtml(plan)}</span>`:""}<span class="badge">${escapeHtml(note.id)}</span></div>
           <div class="preview-hit" data-preview="${note.id}" title="点击预览发到 X 的效果">
             <h2 class="note-title">${escapeHtml(note.title||"（无标题）")}${internal}</h2>
-            <div class="note-text${thread?" has-thread":""}"><div class="body-text">${body?escapeHtml(body):'<span class="text-empty">（正文为空）</span>'}</div>${threadHtml}</div>
+            <div class="note-text${(thread||floors.length)?" has-thread":""}"><div class="body-text">${body?escapeHtml(body):'<span class="text-empty">（正文为空）</span>'}</div>${threadHtml}</div>
           </div>
+          ${floorsHtml}
           ${mediaZone(note)}
           ${actionRows(note)}
         </div>
@@ -1067,7 +1179,10 @@ PAGE_TEMPLATE = r"""<!doctype html>
       if (kind==="article") mock=articleHtml(note);
       else {
         const idxs=images.slice(0,4).map((_,i)=>i);
-        mock=detailPost(note, clean(note.body), idxs, "正文为空") + (clean(note.thread)?detailPost(note, clean(note.thread), [], ""):"");
+        mock=detailPost(note, clean(note.body), idxs, "正文为空");
+        const fls=note.floors||[];
+        if (fls.length) { mock+=fls.map(f=>{ const fn=Object.assign({}, note, {images:f.images||[], imageSizes:f.imageSizes||[]}); const fidx=(f.images||[]).slice(0,4).map((_,i)=>i); return `<div class="xd-floor-tag">第 ${f.n} 楼${f.role?" · "+escapeHtml(f.role):""}</div>`+detailPost(fn, clean(f.text), fidx, "本楼正文为空"); }).join(""); }
+        else if (clean(note.thread)) mock+=detailPost(note, clean(note.thread), [], "");
       }
       // 纯预览：只呈现仿 X 页面，不放任何操作按钮或说明（操作都在卡片上）
       $("#previewBody").innerHTML=`<div class="x-frame">${mock}</div>`;
@@ -1108,6 +1223,8 @@ PAGE_TEMPLATE = r"""<!doctype html>
       if (t.closest("[data-close-preview]")) { closePreview(); return; }
       const copy=t.closest("[data-copy]");
       if (copy) { const note=findNote(copy.dataset.id); if(note) doCopy(note, copy.dataset.copy); return; }
+      const copyFloor=t.closest("[data-copy-floor]");
+      if (copyFloor) { const note=findNote(copyFloor.dataset.id); if(note) doCopyFloor(note, Number(copyFloor.dataset.copyFloor)); return; }
       const goArticle=t.closest("[data-go-article]");
       if (goArticle) {
         // 同一手势内：先同步写剪贴板（标题），再 window.open；被拦截时退回本页跳转，保证能到编辑页

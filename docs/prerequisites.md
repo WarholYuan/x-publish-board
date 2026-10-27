@@ -20,7 +20,7 @@
 部署前把这几个值准备好，填进 `config.env`，其余全有默认值：
 
 1. `FEISHU_BASE_TOKEN`——飞书 Base 链接里 `/base/` 后面那一段；
-2. 四张表的 table_id——发布库、选题池、账号日快照、对标账号各一个（`lark-cli base +table-list` 一条命令查全）；
+2. 五张表的 table_id——发布库、选题池、账号日快照、对标账号、楼层各一个（楼层表只在用串帖逐楼时需要，可后建）（`lark-cli base +table-list` 一条命令查全）；
 3. `X_TARGET_ACCOUNT`——你的 X handle，不带 @；
 4. `X_DISPLAY_NAMES_JSON`——预览里显示的昵称，如 `{"@your_handle": "你的昵称"}`；
 5. `SITE_DOMAIN` / `SITE_URL`——你的域名；

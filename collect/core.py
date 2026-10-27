@@ -30,6 +30,8 @@ from zoneinfo import ZoneInfo
 BASE_TOKEN = os.environ.get("FEISHU_BASE_TOKEN", "")
 PUBLISH_TABLE = os.environ.get("FEISHU_PUBLISH_TABLE_ID", "")
 DAILY_TABLE = os.environ.get("FEISHU_DAILY_TABLE_ID", "")
+# 楼层表（串帖逐楼）：可选；未配置时回采跳过逐楼回填
+FLOORS_TABLE = os.environ.get("FEISHU_FLOORS_TABLE_ID", "")
 TARGET_ACCOUNT = os.environ.get("X_TARGET_ACCOUNT", "your_handle").lstrip("@")
 TARGET_ACCOUNT_AT = "@" + TARGET_ACCOUNT
 
@@ -59,6 +61,7 @@ PUBLISH_FIELDS = [
     "24小时曝光",
 ]
 DAILY_FIELDS = ["日期", "账号", "粉丝总数", "认证粉丝数"]
+FLOOR_FIELDS = ["楼层", "所属帖", "楼号", "本楼链接", "点赞", "收藏", "回复"]
 
 # 三个回填窗口（小时）
 WINDOW_1H = (0.75, 1.5)

@@ -185,6 +185,16 @@ def check_config(cfg: dict, bad_lines: list[str], cfg_path: Path) -> Result:
                        "在飞书里打开对应的表，用 lark-cli base +table-list 重新对一遍 ID。")
             else:
                 r.add("四张表的 ID 在 Base 里都对得上。")
+            floors_id = cfg.get("FEISHU_FLOORS_TABLE_ID", "")
+            if floors_id:
+                if floors_id in out:
+                    r.add("楼层表的 ID 也对得上，串帖逐楼功能开着。")
+                else:
+                    r.fail("楼层表（FEISHU_FLOORS_TABLE_ID）的 ID 在 Base 里找不到。",
+                           "在飞书里确认「楼层」表还在，用 lark-cli base +table-list 重新对一遍 ID；"
+                           "不用串帖逐楼就把这一项清空，发布板会退回旧模式。")
+            else:
+                r.add("楼层表未配置：串帖逐楼功能关着，整串写在发布库「串/首条回复」里也能发（旧模式）。")
     _ = cfg_path
     return r
 

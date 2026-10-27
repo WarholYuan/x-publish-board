@@ -33,7 +33,7 @@
 | 回采接收端 | `collect/ingest_server.py` | 接收扩展上报（127.0.0.1:8795，经反代 `/collect-api/`） |
 | 公开兜底 | `collect/fx_poll.py` | 每小时用 FxTwitter 公开接口补数据；粉丝总数只认这条官方口径，不认扩展抄来的数 |
 | 浏览器扩展 | `extension/` | Chromium MV3，只读：采集主页帖子列表、单帖指标、Analytics；只认本人账号，不是本人直接跳过 |
-| 飞书结构 | `docs/feishu-base.md` + `feishu/schema.json` | 四张表的完整字段、选项、公式与仪表盘定义，附 `lark-cli` 建表脚本 |
+| 飞书结构 | `docs/feishu-base.md` + `feishu/schema.json` | 五张表的完整字段、选项、公式与仪表盘定义，附 `lark-cli` 建表脚本 |
 
 ## 发布板怎么用（日常动线）
 
@@ -65,7 +65,7 @@
 ## 快速开始
 
 0. 先看 [docs/prerequisites.md](docs/prerequisites.md) 备齐：Linux 服务器（1 核 1GB 够）、域名 + HTTPS、飞书账号、装好并登录的 lark-cli、要运营的 X 账号。
-1. 按 [docs/feishu-base.md](docs/feishu-base.md) 建飞书 Base（手动照表建，或跑 `feishu/create_base.sh` 用 lark-cli 半自动建），拿到 Base token 和四张表的 table_id。
+1. 按 [docs/feishu-base.md](docs/feishu-base.md) 建飞书 Base（手动照表建，或跑 `feishu/create_base.sh` 用 lark-cli 半自动建），拿到 Base token 和五张表的 table_id。
 2. 复制 `config.env.example` 为服务器上的 `/opt/xboard/config.env` 与 `/opt/xcollect/config.env`（或同一份），填飞书、账号、域名、路径。
 3. 按 [docs/deployment.md](docs/deployment.md) 部署 board 与 collect 两个服务（systemd + Caddy 片段都在仓库里）。
 4. 按 [docs/extension.md](docs/extension.md) 生成并安装你的回采扩展（把占位符换成你的 X 账号和域名）。

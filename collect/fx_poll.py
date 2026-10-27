@@ -231,6 +231,51 @@ def acquire_lock():
     return fh
 
 
+def poll_floors(dry_run: bool) -> dict:
+    """楼层表逐楼回填：对填了「本楼链接」的楼层行，用 FxTwitter 拉最新赞/收藏/回复写回。
+
+    口径与发布库不同：楼层不分 1/24/72h 窗口，每轮刷新为最新快照，值没变不写。
+    未配置楼层表（FEISHU_FLOORS_TABLE_ID 为空）时直接跳过。
+    """
+    stats = {"floors": 0, "fetched": 0, "updated": 0, "failed": 0}
+    if not core.FLOORS_TABLE:
+        return stats
+    try:
+        rows = core.list_records(core.FLOORS_TABLE, core.FLOOR_FIELDS)
+    except core.LarkError as exc:
+        log.warning("floors: list failed: %s", exc)
+        return stats
+    for row in rows:
+        pid = core.post_id_from_url(row.get("本楼链接"))
+        if not pid:
+            continue
+        stats["floors"] += 1
+        tweet = fetch_post(pid)
+        if tweet is None:
+            stats["failed"] += 1
+            continue
+        stats["fetched"] += 1
+        m = tweet_metrics(tweet)
+        want = {"点赞": m["likes"], "收藏": m["bookmarks"], "回复": m["replies"]}
+        changed = {k: v for k, v in want.items()
+                   if v is not None and core.parse_number(row.get(k)) != v}
+        if not changed:
+            continue
+        log.info("floors: record=%s post=%s update=%s", row["_record_id"], pid, changed)
+        if dry_run:
+            stats["updated"] += 1
+            continue
+        try:
+            core.update_record(core.FLOORS_TABLE, row["_record_id"], changed)
+            stats["updated"] += 1
+        except core.LarkError as exc:
+            log.error("floors: write record=%s failed: %s", row["_record_id"], exc)
+            stats["failed"] += 1
+        time.sleep(0.4)
+    log.info("floors done %s", json.dumps(stats, ensure_ascii=False, sort_keys=True))
+    return stats
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true")
@@ -338,6 +383,9 @@ def main() -> int:
             if fill.get("filled"):
                 stats["fills"] += 1
         time.sleep(0.4)
+
+    if not args.post_id:
+        stats["floors"] = poll_floors(args.dry_run)
 
     if not args.skip_account:
         if args.dry_run:
