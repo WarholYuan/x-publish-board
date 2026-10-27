@@ -1,0 +1,19 @@
+[Unit]
+Description=X publish board state API
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+EnvironmentFile=/opt/xboard/config.env
+Environment=HOME=/root
+Environment=PATH=/opt/node24/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/python3 /opt/xboard/state_server.py
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

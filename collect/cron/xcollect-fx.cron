@@ -1,0 +1,5 @@
+SHELL=/bin/sh
+TZ=Asia/Shanghai
+PATH=/opt/node24/bin:/usr/local/bin:/usr/bin:/bin
+# 每小时第 17 分：FxTwitter 公开数据兜底（先加载 config.env，cron 不读 systemd 的 EnvironmentFile）
+17 * * * * root set -a; . /opt/xcollect/config.env; set +a; /usr/bin/python3 /opt/xcollect/fx_poll.py >> /opt/xcollect/fx_poll.log 2>&1

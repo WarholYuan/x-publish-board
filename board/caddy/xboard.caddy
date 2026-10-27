@@ -1,0 +1,29 @@
+# 并进你的站点段（把 example.com 换成你的域名，站点根目录按你的实际情况改）。
+# 前提：root 指向 /var/www/x-publish-board 的父级站点目录，且 /x/ 下就是板页输出目录；
+# 若你的站点结构不同，只保留下面三段 handle，把静态文件目录对上 XBOARD_OUT_DIR 即可。
+
+example.com {
+	root * /var/www/x-publish-board
+	encode gzip
+
+	# 状态服务：板页「发完了 / 撤销」回写飞书
+	handle_path /x-api/* {
+		header Cache-Control "no-store"
+		header X-Robots-Tag "noindex, nofollow"
+		reverse_proxy 127.0.0.1:8791
+	}
+
+	# 回采接收端：浏览器扩展上报
+	handle_path /collect-api/* {
+		header Cache-Control "no-store"
+		header X-Robots-Tag "noindex, nofollow"
+		reverse_proxy 127.0.0.1:8795
+	}
+
+	# 发布板静态页（渲染脚本输出到 XBOARD_OUT_DIR，默认 /var/www/x-publish-board/x）
+	@xboard path /x /x/ /x/*
+	header @xboard Cache-Control "no-store"
+	header @xboard X-Robots-Tag "noindex, nofollow"
+
+	file_server
+}

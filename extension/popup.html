@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>X 数据回采</title>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; }
+    body {
+      width: 372px; margin: 0; padding: 16px;
+      font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: #0f1419; background: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { color: #e7e9ea; background: #15202b; }
+      .card { background: #1e2732 !important; border-color: #38444d !important; }
+      input { background: #15202b !important; color: #e7e9ea !important; border-color: #38444d !important; }
+      .muted { color: #8b98a5 !important; }
+      .btn.secondary { background: #22303c !important; color: #e7e9ea !important; }
+    }
+    h1 { font-size: 17px; margin: 0 0 2px; letter-spacing: .2px; }
+    .sub { color: #536471; font-size: 12px; margin-bottom: 14px; }
+    .muted { color: #536471; }
+    .card {
+      border: 1px solid #cfd9de; border-radius: 10px; padding: 12px;
+      background: #f7f9f9; margin-bottom: 12px;
+    }
+    label { display: block; font-weight: 600; margin-bottom: 6px; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    input[type="password"], input[type="text"] {
+      flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid #cfd9de;
+      border-radius: 8px; font: inherit; background: #fff; color: inherit;
+    }
+    button {
+      border: 0; border-radius: 999px; padding: 8px 13px; font: inherit;
+      font-weight: 600; cursor: pointer; background: #1d9bf0; color: #fff;
+    }
+    button:disabled { opacity: .55; cursor: default; }
+    button.secondary { background: #eff3f4; color: #0f1419; }
+    button.danger { background: transparent; color: #f4212e; padding: 8px 6px; }
+    .status { display: flex; align-items: center; gap: 7px; margin: 9px 0 0; font-size: 12px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #8b98a5; flex: none; }
+    .dot.ok { background: #00ba7c; }
+    .dot.bad { background: #f4212e; }
+    .collect { width: 100%; padding: 10px; font-size: 14px; }
+    .kv { display: grid; grid-template-columns: 76px 1fr; gap: 4px 8px; font-size: 12px; }
+    .kv div:nth-child(odd) { color: #536471; }
+    .result { margin-top: 10px; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+    .err { color: #f4212e; }
+    .ok { color: #00ba7c; }
+    a { color: #1d9bf0; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .hint { font-size: 11px; color: #536471; margin-top: 6px; }
+    .footer { display: flex; justify-content: space-between; font-size: 11px; color: #536471; margin-top: 12px; }
+    code { font-size: 11px; background: rgba(127,127,127,.14); padding: 1px 4px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>X 数据回采</h1>
+  <div class="sub">只读采集 <b>@YOUR_X_HANDLE</b> 本人数据 · 上报到 发布库</div>
+
+  <div class="card">
+    <label for="token">采集令牌</label>
+    <div class="row">
+      <input id="token" type="password" autocomplete="off" placeholder="在部署端获取后填入（只存本机）">
+      <button id="save" type="button">保存</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <div class="status" style="margin:0; flex:1">
+        <span id="tokenDot" class="dot"></span>
+        <span id="tokenStatus">读取中…</span>
+      </div>
+      <button id="clear" type="button" class="danger">清除令牌</button>
+    </div>
+    <div class="hint">令牌保存在浏览器本地 <code>chrome.storage.local</code>，不会写进扩展文件，也不会发往任何第三方。</div>
+  </div>
+
+  <button id="collect" class="collect" type="button">立即采集</button>
+
+  <div class="card" style="margin-top:12px">
+    <div class="kv">
+      <div>上次采集</div><div id="lastAt">—</div>
+      <div>触发方式</div><div id="lastTrigger">—</div>
+      <div>结果</div><div id="lastDetail">—</div>
+      <div>标签页</div><div id="lastTabs">—</div>
+    </div>
+    <div id="result" class="result"></div>
+    <div id="skip" class="result muted"></div>
+  </div>
+
+  <div class="footer">
+    <span>上报端：YOUR_DOMAIN/collect-api</span>
+    <a href="https://YOUR_DOMAIN/x/" target="_blank" rel="noreferrer">发布板 ↗</a>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

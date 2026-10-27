@@ -1,0 +1,12 @@
+[Unit]
+Description=Render X board from Feishu
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/opt/xboard/config.env
+Environment=PATH=/opt/node24/bin:/usr/local/bin:/usr/bin:/bin
+Environment=HOME=/root
+ExecStart=/usr/bin/python3 /opt/xboard/render_board.py
+StandardOutput=append:/opt/xboard/render.log
+StandardError=append:/opt/xboard/render.log

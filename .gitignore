@@ -1,0 +1,14 @@
+config.env
+*.env
+!config.env.example
+state-token.txt
+collect-token.txt
+*.jsonl
+*.log
+*.bak-*
+__pycache__/
+*.pyc
+index.html
+assets/
+extension.zip
+.DS_Store

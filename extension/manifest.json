@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "X 数据回采（@YOUR_X_HANDLE）",
+  "version": "1.0.0",
+  "description": "只读采集 @YOUR_X_HANDLE 本人的 X 帖子列表、单帖指标与 Analytics 数据，上报到 发布库。",
+  "minimum_chrome_version": "102",
+  "permissions": ["storage", "alarms"],
+  "host_permissions": [
+    "https://x.com/*",
+    "https://twitter.com/*",
+    "https://YOUR_DOMAIN/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "X 数据回采",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
