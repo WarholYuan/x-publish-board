@@ -65,6 +65,8 @@ sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
 5. 装好扩展后打开你的 X 主页，点扩展「立即采集」，服务端日志 `/opt/xcollect/ingest.log` 应出现一条上报记录。
 6. 手动跑一次 `python3 /opt/xcollect/fx_poll.py --dry-run`，能拉到你已发布帖子的公开数据（前提是飞书里已有带帖子链接的已发布记录）。
 
+补充：仓库带了一个自检脚本 `scripts/doctor.py`，按「授权 → 配置 → 运行环境 → 回采 → 令牌与服务」五项逐项验并生成诊断码，验收卡住或日后板子不动了，先跑它再排查（本地模式同样适用，见 `docs/no-server.md`）。
+
 ## 5. 日常运维
 
 - 板页是静态渲染：飞书里改了内容，最多等 5 分钟自动上板；等不及就手动跑一次渲染脚本。渲染前会自动备份旧板页为 `index.html.bak-<时间戳>`。

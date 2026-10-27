@@ -92,7 +92,7 @@ local/       无服务器模式：本地网关 + 一键启动脚本（sh / ps1�
 extension/   回采浏览器扩展（占位符模板 + configure_extension.py 生成脚本）
 feishu/      Base 结构定义 schema.json + 建表脚本
 docs/        飞书建表、部署、扩展三份手册
-scripts/     服务器一键安装脚本
+scripts/     服务器一键安装脚本 + doctor.py 自检（卡住先跑它，五项逐项给人话结论与诊断码）
 ```
 
 ## 测试
